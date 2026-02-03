@@ -1,0 +1,16 @@
+Tool:      rclaude
+Model:  opus
+Codebase:  gemini_test
+Output:    /Users/cliff/Desktop/_code/gemini_test/_rcodegen
+Command:   rclaude -m opus suite
+Started:   2026-01-26 18:34:45
+Ended:     2026-01-26 18:45:22
+Duration:  10m 37s
+Exit Code: 0
+
+--- Token Usage ---
+Input:     4
+Output:    4427
+Cache Read: 101068
+Cache Create: 9878
+Cost:      $0.2609
