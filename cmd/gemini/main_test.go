@@ -3,16 +3,16 @@ package main
 import (
 	"testing"
 
-	"github.com/ai8future/chassis-go/config"
+	chassisconfig "github.com/ai8future/chassis-go/config"
 	"github.com/ai8future/chassis-go/testkit"
 )
 
-func TestConfigLoading(t *testing.T) {
+func TestConfig_Defaults(t *testing.T) {
 	testkit.SetEnv(t, map[string]string{
 		"GEMINI_API_KEY": "test-key-123",
 	})
 
-	cfg := config.MustLoad[Config]()
+	cfg := chassisconfig.MustLoad[Config]()
 
 	if cfg.APIKey != "test-key-123" {
 		t.Errorf("APIKey: got %q, want %q", cfg.APIKey, "test-key-123")
@@ -29,22 +29,26 @@ func TestConfigLoading(t *testing.T) {
 	if cfg.Timeout.String() != "30s" {
 		t.Errorf("Timeout: got %s, want 30s", cfg.Timeout)
 	}
+	if cfg.GoogleSearch != true {
+		t.Errorf("GoogleSearch: got %v, want true", cfg.GoogleSearch)
+	}
 	if cfg.LogLevel != "error" {
 		t.Errorf("LogLevel: got %q, want %q", cfg.LogLevel, "error")
 	}
 }
 
-func TestConfigOverrides(t *testing.T) {
+func TestConfig_Overrides(t *testing.T) {
 	testkit.SetEnv(t, map[string]string{
-		"GEMINI_API_KEY":     "key-override",
-		"GEMINI_MODEL":       "gemini-2.0-flash",
-		"GEMINI_MAX_TOKENS":  "8192",
-		"GEMINI_TEMPERATURE": "0.5",
-		"GEMINI_TIMEOUT":     "10s",
-		"LOG_LEVEL":          "debug",
+		"GEMINI_API_KEY":          "key-override",
+		"GEMINI_MODEL":            "gemini-2.0-flash",
+		"GEMINI_MAX_TOKENS":       "8192",
+		"GEMINI_TEMPERATURE":      "0.5",
+		"GEMINI_TIMEOUT":          "10s",
+		"GEMINI_GOOGLE_SEARCH":    "false",
+		"LOG_LEVEL":               "debug",
 	})
 
-	cfg := config.MustLoad[Config]()
+	cfg := chassisconfig.MustLoad[Config]()
 
 	if cfg.Model != "gemini-2.0-flash" {
 		t.Errorf("Model: got %q, want %q", cfg.Model, "gemini-2.0-flash")
@@ -58,21 +62,21 @@ func TestConfigOverrides(t *testing.T) {
 	if cfg.Timeout.String() != "10s" {
 		t.Errorf("Timeout: got %s, want 10s", cfg.Timeout)
 	}
+	if cfg.GoogleSearch != false {
+		t.Errorf("GoogleSearch: got %v, want false", cfg.GoogleSearch)
+	}
 	if cfg.LogLevel != "debug" {
 		t.Errorf("LogLevel: got %q, want %q", cfg.LogLevel, "debug")
 	}
 }
 
-func TestConfigMissingAPIKey(t *testing.T) {
-	testkit.SetEnv(t, map[string]string{
-		"GEMINI_API_KEY": "",
-	})
+func TestConfig_PanicsWithoutAPIKey(t *testing.T) {
+	testkit.SetEnv(t, map[string]string{})
 
 	defer func() {
 		if r := recover(); r == nil {
-			t.Error("expected panic for missing GEMINI_API_KEY, got none")
+			t.Fatal("expected panic for missing GEMINI_API_KEY")
 		}
 	}()
-
-	config.MustLoad[Config]()
+	_ = chassisconfig.MustLoad[Config]()
 }
