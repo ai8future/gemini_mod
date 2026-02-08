@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ai8future/chassis-go"
 	"github.com/ai8future/chassis-go/call"
 	chassisconfig "github.com/ai8future/chassis-go/config"
 	"github.com/ai8future/chassis-go/logz"
@@ -28,8 +29,11 @@ type Config struct {
 }
 
 func main() {
+	chassis.RequireMajor(4)
+
 	cfg := chassisconfig.MustLoad[Config]()
 	logger := logz.New(cfg.LogLevel)
+	logger.Info("starting", "chassis", chassis.Version)
 
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage: gemini <prompt>")
