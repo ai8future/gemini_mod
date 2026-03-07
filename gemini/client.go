@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -18,7 +19,12 @@ const (
 	defaultTimeout    = 30 * time.Second
 	maxResponseBytes  = 10 * 1024 * 1024 // 10 MB
 	maxErrorBodyBytes = 1024             // truncate error bodies in messages
+	maxTemperature    = 2.0
+	maxMaxTokens      = 1_000_000
 )
+
+// validModel matches model names: alphanumeric, dots, hyphens, underscores, slashes.
+var validModel = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._/-]*$`)
 
 // Doer executes HTTP requests. Satisfied by *http.Client, call.Client, and test mocks.
 type Doer interface {
@@ -51,6 +57,16 @@ func WithBaseURL(url string) Option {
 	return func(c *Client) { c.baseURL = url }
 }
 
+// WithTimeout sets the timeout on the default HTTP client.
+// Ignored when WithDoer is also used, since the caller controls their own client.
+func WithTimeout(d time.Duration) Option {
+	return func(c *Client) {
+		if hc, ok := c.doer.(*http.Client); ok {
+			hc.Timeout = d
+		}
+	}
+}
+
 // New creates a Gemini client with the given API key and options.
 func New(apiKey string, opts ...Option) (*Client, error) {
 	if strings.TrimSpace(apiKey) == "" {
@@ -65,8 +81,15 @@ func New(apiKey string, opts ...Option) (*Client, error) {
 	for _, o := range opts {
 		o(c)
 	}
+	c.baseURL = strings.TrimRight(c.baseURL, "/")
 	if !strings.HasPrefix(c.baseURL, "https://") {
 		return nil, fmt.Errorf("gemini: base URL must use HTTPS, got %q", c.baseURL)
+	}
+	if c.model == "" {
+		return nil, errors.New("gemini: model must not be empty")
+	}
+	if !validModel.MatchString(c.model) {
+		return nil, fmt.Errorf("gemini: invalid model name %q", c.model)
 	}
 	return c, nil
 }
@@ -105,16 +128,16 @@ func (c *Client) Generate(ctx context.Context, prompt string, opts ...GenerateOp
 		o(cfg)
 	}
 
-	if cfg.maxTokens <= 0 {
-		return nil, fmt.Errorf("gemini: maxTokens must be positive, got %d", cfg.maxTokens)
+	if cfg.maxTokens <= 0 || cfg.maxTokens > maxMaxTokens {
+		return nil, fmt.Errorf("gemini: maxTokens must be between 1 and %d, got %d", maxMaxTokens, cfg.maxTokens)
 	}
-	if cfg.temperature < 0 {
-		return nil, fmt.Errorf("gemini: temperature must be non-negative, got %f", cfg.temperature)
+	if cfg.temperature < 0 || cfg.temperature > maxTemperature {
+		return nil, fmt.Errorf("gemini: temperature must be between 0 and %.1f, got %f", maxTemperature, cfg.temperature)
 	}
 
 	reqBody := Request{
 		Contents: []Content{
-			{Parts: []Part{{Text: prompt}}},
+			{Role: "user", Parts: []Part{{Text: prompt}}},
 		},
 		GenerationConfig: GenerationConfig{
 			MaxOutputTokens: cfg.maxTokens,

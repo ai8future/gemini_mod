@@ -38,5 +38,8 @@ dist/
 *.swp
 *.swo
 
+# Syncthing
+*.sync-conflict-*
+
 # Claude
 .claude/settings.local.json

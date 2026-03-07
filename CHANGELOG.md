@@ -1,5 +1,8 @@
 # Changelog
 
+## [1.3.1] - 2026-03-07
+- Sync uncommitted changes
+
 ## 1.3.0
 
 - Upgrade chassis-go from v5.0.0 to v6.0.9 (major version bump)

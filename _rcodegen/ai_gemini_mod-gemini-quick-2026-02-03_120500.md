@@ -1,4 +1,5 @@
 Date Created: Tuesday, February 3, 2026
+Date Updated: 2026-02-17
 TOTAL_SCORE: 92/100
 
 # 1. AUDIT
@@ -82,7 +83,7 @@ Prevent sending empty prompts to the API.
  		temperature: 1.0,
 ```
 
-### Fix 2: Sanitize BaseURL in `New`
+### Fix 2: Sanitize BaseURL in `New` — FIXED 2026-02-17
 
 Ensure `baseURL` does not have a trailing slash to prevent URL construction issues.
 

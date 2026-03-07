@@ -14,6 +14,7 @@ type Request struct {
 
 // Content represents a content block containing parts.
 type Content struct {
+	Role  string `json:"role"`
 	Parts []Part `json:"parts"`
 }
 
@@ -76,9 +77,9 @@ type SafetyRating struct {
 }
 
 // Text returns the concatenated text from all parts of the first candidate.
-// Returns empty string if there are no candidates or parts.
+// Returns empty string if r is nil or there are no candidates or parts.
 func (r *Response) Text() string {
-	if len(r.Candidates) == 0 {
+	if r == nil || len(r.Candidates) == 0 {
 		return ""
 	}
 	parts := r.Candidates[0].Content.Parts

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 // mockDoer captures the request and returns a canned response.
@@ -350,14 +351,91 @@ func TestGenerate_ZeroTemperature(t *testing.T) {
 }
 
 func TestNew_EmptyModel(t *testing.T) {
+	_, err := New("key", WithModel(""))
+	if err == nil {
+		t.Fatal("expected error for empty model")
+	}
+	if !strings.Contains(err.Error(), "model must not be empty") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestNew_InvalidModelName(t *testing.T) {
+	tests := []struct {
+		name  string
+		model string
+	}{
+		{"path traversal", "../../evil"},
+		{"starts with dot", ".hidden"},
+		{"spaces", "model name"},
+		{"query injection", "model?key=evil"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := New("key", WithModel(tt.model))
+			if err == nil {
+				t.Fatalf("expected error for model %q", tt.model)
+			}
+			if !strings.Contains(err.Error(), "invalid model name") {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestNew_ValidModelNames(t *testing.T) {
+	tests := []string{
+		"gemini-3-pro-preview",
+		"gemini-2.0-flash",
+		"models/gemini-2.0-flash",
+		"custom_model_v1",
+	}
+	for _, model := range tests {
+		t.Run(model, func(t *testing.T) {
+			_, err := New("key", WithModel(model))
+			if err != nil {
+				t.Fatalf("model %q should be valid, got error: %v", model, err)
+			}
+		})
+	}
+}
+
+func TestGenerate_TemperatureTooHigh(t *testing.T) {
 	mock := &mockDoer{statusCode: 200, respBody: `{}`}
-	c := mustNew(t, "key", WithDoer(mock), WithModel(""))
+	c := mustNew(t, "key", WithDoer(mock))
+	_, err := c.Generate(context.Background(), "test", WithTemperature(2.5))
+	if err == nil {
+		t.Fatal("expected error for temperature > 2.0")
+	}
+	if !strings.Contains(err.Error(), "between 0 and 2.0") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGenerate_MaxTokensTooHigh(t *testing.T) {
+	mock := &mockDoer{statusCode: 200, respBody: `{}`}
+	c := mustNew(t, "key", WithDoer(mock))
+	_, err := c.Generate(context.Background(), "test", WithMaxTokens(2_000_000))
+	if err == nil {
+		t.Fatal("expected error for maxTokens > 1_000_000")
+	}
+	if !strings.Contains(err.Error(), "between 1 and 1000000") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestGenerate_RoleSetToUser(t *testing.T) {
+	mock := &mockDoer{statusCode: 200, respBody: `{}`}
+	c := mustNew(t, "key", WithDoer(mock))
+
 	_, _ = c.Generate(context.Background(), "test")
 
-	// Empty model produces URL like "https://…/:generateContent"
-	got := mock.req.URL.String()
-	if !strings.Contains(got, "/:generateContent") {
-		t.Errorf("expected empty model segment in URL, got %q", got)
+	var req Request
+	if err := json.Unmarshal(mock.body, &req); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if req.Contents[0].Role != "user" {
+		t.Errorf("role: got %q, want %q", req.Contents[0].Role, "user")
 	}
 }
 
@@ -492,5 +570,54 @@ func TestResponse_TextMultipleCandidates(t *testing.T) {
 	}
 	if got := r.Text(); got != "first" {
 		t.Errorf("Text() should return first candidate, got %q", got)
+	}
+}
+
+func TestResponse_TextNilReceiver(t *testing.T) {
+	var r *Response
+	if got := r.Text(); got != "" {
+		t.Errorf("Text() on nil receiver: got %q, want empty", got)
+	}
+}
+
+func TestNew_BaseURLTrailingSlash(t *testing.T) {
+	mock := &mockDoer{statusCode: 200, respBody: `{}`}
+	c := mustNew(t, "key", WithDoer(mock), WithBaseURL("https://example.com/api/"))
+
+	if strings.HasSuffix(c.baseURL, "/") {
+		t.Errorf("baseURL should not have trailing slash, got %q", c.baseURL)
+	}
+
+	_, _ = c.Generate(context.Background(), "test")
+
+	wantURL := "https://example.com/api/gemini-3-pro-preview:generateContent"
+	if mock.req.URL.String() != wantURL {
+		t.Errorf("URL: got %q, want %q", mock.req.URL.String(), wantURL)
+	}
+}
+
+func TestWithTimeout(t *testing.T) {
+	c, err := New("key", WithTimeout(5*time.Second))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	hc, ok := c.doer.(*http.Client)
+	if !ok {
+		t.Fatal("doer should be an *http.Client")
+	}
+	if hc.Timeout != 5*time.Second {
+		t.Errorf("timeout: got %v, want 5s", hc.Timeout)
+	}
+}
+
+func TestWithTimeout_IgnoredWithCustomDoer(t *testing.T) {
+	mock := &mockDoer{}
+	// WithTimeout applied after WithDoer — should be silently ignored.
+	c, err := New("key", WithDoer(mock), WithTimeout(5*time.Second))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.doer != mock {
+		t.Error("doer should still be the custom mock")
 	}
 }
