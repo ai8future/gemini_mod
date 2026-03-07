@@ -9,12 +9,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ai8future/chassis-go"
-	"github.com/ai8future/chassis-go/call"
-	chassisconfig "github.com/ai8future/chassis-go/config"
-	"github.com/ai8future/chassis-go/logz"
+	chassis "github.com/ai8future/chassis-go/v6"
+	"github.com/ai8future/chassis-go/v6/call"
+	chassisconfig "github.com/ai8future/chassis-go/v6/config"
+	"github.com/ai8future/chassis-go/v6/logz"
 
 	"ai_gemini_mod/gemini"
+)
+
+const (
+	retryAttempts    = 3
+	retryBaseDelay   = 500 * time.Millisecond
+	retryTotalAttempts = retryAttempts + 1 // initial attempt + retries
 )
 
 // Config holds CLI configuration loaded from environment.
@@ -29,23 +35,29 @@ type Config struct {
 }
 
 func main() {
-	chassis.RequireMajor(4)
+	chassis.RequireMajor(6)
 
+	if err := run(os.Args[1:]); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run(args []string) error {
 	cfg := chassisconfig.MustLoad[Config]()
 	logger := logz.New(cfg.LogLevel)
 	logger.Info("starting", "chassis", chassis.Version)
 
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: gemini <prompt>")
-		os.Exit(1)
+	if len(args) == 0 {
+		return fmt.Errorf("usage: gemini <prompt>")
 	}
-	prompt := strings.Join(os.Args[1:], " ")
+	prompt := strings.Join(args, " ")
 
 	logger.Debug("request config", "model", cfg.Model, "max_tokens", cfg.MaxTokens, "temperature", cfg.Temperature)
 
 	caller := call.New(
 		call.WithTimeout(cfg.Timeout),
-		call.WithRetry(3, 500*time.Millisecond),
+		call.WithRetry(retryAttempts, retryBaseDelay),
 	)
 
 	client, err := gemini.New(cfg.APIKey,
@@ -53,12 +65,11 @@ func main() {
 		gemini.WithDoer(caller),
 	)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	// Allow enough time for all retry attempts (4 total) plus backoff gaps.
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout*5)
+	// Allow enough time for all retry attempts; +1 provides buffer for backoff gaps.
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout*time.Duration(retryTotalAttempts+1))
 	defer cancel()
 
 	genOpts := []gemini.GenerateOption{
@@ -71,14 +82,13 @@ func main() {
 
 	resp, err := client.Generate(ctx, prompt, genOpts...)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	out, err := json.MarshalIndent(resp, "", "  ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error formatting response: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("formatting response: %w", err)
 	}
 	fmt.Println(string(out))
+	return nil
 }

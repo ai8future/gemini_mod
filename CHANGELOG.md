@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.3.0
+
+- Upgrade chassis-go from v5.0.0 to v6.0.9 (major version bump)
+- Update RequireMajor gate from 5 to 6
+- Update all import paths to github.com/ai8future/chassis-go/v6
+- Update VERSION.chassis to 6.0.9
+- Agent: Claude:Opus 4.6
+
+## 1.2.1
+
+- **Docs**: Add comprehensive README.md with library/CLI usage, API reference, security notes, and project structure
+- Agent: Claude:Opus 4.6
+
+## 1.2.0
+
+- **Security**: Remove leaked API key from .env, replace with placeholder
+- **Security**: Validate model name against regex to prevent URL path manipulation
+- **Fix**: Reject empty model names in `New()` (previously produced malformed URLs)
+- **Fix**: Add `role: "user"` to request Content per Gemini API spec
+- **Fix**: Add upper-bound validation for temperature (max 2.0) and maxTokens (max 1,000,000)
+- **Fix**: Sync go.sum with chassis-go/v5 dependencies (broken build)
+- **Fix**: Derive context timeout from retry constants instead of hardcoded multiplier
+- **Refactor**: Extract `run()` from `main()` for testability
+- **Tests**: Add tests for model name validation, upper bounds, and role field
+- Agent: Claude:Opus 4.6
+
+## 1.1.0
+
+- Upgrade chassis-go from v4.0.0 to v5.0.0 (module path migrated to /v5)
+- Update RequireMajor gate from 4 to 5
+- Update all import paths to github.com/ai8future/chassis-go/v5
+
+## 1.0.1
+
+- Upgrade chassis-go to v4.0.0 (module v1.4.0)
+
 ## 1.0.0
 
 - Initial release: reusable Gemini API client library (`gemini/`) with Doer interface, functional options, and response types
