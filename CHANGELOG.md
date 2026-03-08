@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.3.3
+
+- Upgrade chassis-go from v7 to v8 (8.0.0)
+- Update RequireMajor(7) to RequireMajor(8) in main and tests
+- Update all import paths to github.com/ai8future/chassis-go/v8
+- Agent: Claude Code (Claude:Opus 4.6)
+
+## 1.3.2
+
+- Upgrade chassis-go from v6.0.9 to v7.0.0 (major version bump)
+- Update RequireMajor gate from 6 to 7
+- Update all import paths to github.com/ai8future/chassis-go/v7
+- Add CLI registry pattern (registry.InitCLI / registry.ShutdownCLI)
+- Update VERSION.chassis to 7.0.0
+- Agent: Claude:Opus 4.6
+
 ## [1.3.1] - 2026-03-07
 - Sync uncommitted changes
 

@@ -5,14 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
 
-	chassis "github.com/ai8future/chassis-go/v6"
-	"github.com/ai8future/chassis-go/v6/call"
-	chassisconfig "github.com/ai8future/chassis-go/v6/config"
-	"github.com/ai8future/chassis-go/v6/logz"
+	chassis "github.com/ai8future/chassis-go/v8"
+	"github.com/ai8future/chassis-go/v8/call"
+	chassisconfig "github.com/ai8future/chassis-go/v8/config"
+	"github.com/ai8future/chassis-go/v8/logz"
+	"github.com/ai8future/chassis-go/v8/registry"
 
 	"ai_gemini_mod/gemini"
 )
@@ -35,12 +37,19 @@ type Config struct {
 }
 
 func main() {
-	chassis.RequireMajor(6)
+	chassis.RequireMajor(8)
+
+	if err := registry.InitCLI(chassis.Version); err != nil {
+		log.Fatalf("registry: %v", err)
+	}
 
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		registry.ShutdownCLI(1)
 		os.Exit(1)
 	}
+
+	registry.ShutdownCLI(0)
 }
 
 func run(args []string) error {
