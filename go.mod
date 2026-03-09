@@ -2,9 +2,14 @@ module ai_gemini_mod
 
 go 1.25.5
 
-require github.com/ai8future/chassis-go/v8 v8.0.0
+require (
+	github.com/ai8future/chassis-go-addons/llm v0.0.0
+	github.com/ai8future/chassis-go/v9 v9.0.0
+)
 
-replace github.com/ai8future/chassis-go/v8 => ../../chassis_suite/chassis-go
+replace github.com/ai8future/chassis-go/v9 => ../../chassis_suite/chassis-go
+
+replace github.com/ai8future/chassis-go-addons/llm => ../../chassis_suite/chassis-go-addons/llm
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

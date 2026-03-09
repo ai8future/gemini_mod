@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.3.6
+
+- Replace hand-rolled Gemini HTTP calls with chassis-go-addons/llm module for standard (non-GoogleSearch) requests
+- Keep doRequest fallback for GoogleSearch grounding and custom Doer injection (test mocks)
+- Add chassis-go-addons/llm dependency
+- All existing tests continue to pass (mock-based tests use the fallback path)
+- Agent: Claude Code (Claude:Opus 4.6)
+
+## 1.3.5
+
+- Fix stale VERSION.chassis (was 8.0.0, now 9.0.0)
+- Agent: Claude Code (Claude:Opus 4.6)
+
+## 1.3.4
+
+- Upgrade chassis-go from v8 to v9 (9.0.0)
+- Update RequireMajor(8) to RequireMajor(9) in main and tests
+- Add deploy package integration for environment detection and env file loading
+- Agent: Claude Code (Claude:Opus 4.6)
+
 ## 1.3.3
 
 - Upgrade chassis-go from v7 to v8 (8.0.0)

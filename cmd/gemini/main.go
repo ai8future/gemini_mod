@@ -10,11 +10,12 @@ import (
 	"strings"
 	"time"
 
-	chassis "github.com/ai8future/chassis-go/v8"
-	"github.com/ai8future/chassis-go/v8/call"
-	chassisconfig "github.com/ai8future/chassis-go/v8/config"
-	"github.com/ai8future/chassis-go/v8/logz"
-	"github.com/ai8future/chassis-go/v8/registry"
+	chassis "github.com/ai8future/chassis-go/v9"
+	"github.com/ai8future/chassis-go/v9/call"
+	chassisconfig "github.com/ai8future/chassis-go/v9/config"
+	"github.com/ai8future/chassis-go/v9/deploy"
+	"github.com/ai8future/chassis-go/v9/logz"
+	"github.com/ai8future/chassis-go/v9/registry"
 
 	"ai_gemini_mod/gemini"
 )
@@ -37,7 +38,10 @@ type Config struct {
 }
 
 func main() {
-	chassis.RequireMajor(8)
+	chassis.RequireMajor(9)
+
+	d := deploy.Discover("ai_gemini_mod")
+	d.LoadEnv()
 
 	if err := registry.InitCLI(chassis.Version); err != nil {
 		log.Fatalf("registry: %v", err)
