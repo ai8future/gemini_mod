@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.7
+
+- Add missing chassis-go-addons/llm dependency to README dependencies table
+- Agent: Claude Code (Claude:Opus 4.6)
+
 ## 1.3.6
 
 - Replace hand-rolled Gemini HTTP calls with chassis-go-addons/llm module for standard (non-GoogleSearch) requests
