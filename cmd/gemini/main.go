@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	chassis "github.com/ai8future/chassis-go/v9"
-	"github.com/ai8future/chassis-go/v9/call"
-	chassisconfig "github.com/ai8future/chassis-go/v9/config"
-	"github.com/ai8future/chassis-go/v9/deploy"
-	"github.com/ai8future/chassis-go/v9/logz"
-	"github.com/ai8future/chassis-go/v9/registry"
+	chassis "github.com/ai8future/chassis-go/v10"
+	"github.com/ai8future/chassis-go/v10/call"
+	chassisconfig "github.com/ai8future/chassis-go/v10/config"
+	"github.com/ai8future/chassis-go/v10/deploy"
+	"github.com/ai8future/chassis-go/v10/logz"
+	"github.com/ai8future/chassis-go/v10/registry"
 
 	"ai_gemini_mod/gemini"
 )
@@ -38,7 +38,7 @@ type Config struct {
 }
 
 func main() {
-	chassis.RequireMajor(9)
+	chassis.RequireMajor(10)
 
 	d := deploy.Discover("ai_gemini_mod")
 	d.LoadEnv()

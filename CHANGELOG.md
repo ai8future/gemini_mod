@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.8
+
+- Upgrade chassis-go from v9 to v10 (10.0.2)
+- Update RequireMajor(9) to RequireMajor(10) in main and tests
+- Update all import paths from github.com/ai8future/chassis-go/v9 to /v10
+- Update VERSION.chassis to 10.0.0
+- Agent: Claude Code (Claude:Opus 4.6)
+
 ## 1.3.7
 
 - Add missing chassis-go-addons/llm dependency to README dependencies table
