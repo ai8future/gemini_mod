@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.9
+
+- Replace raw errors (errors.New, fmt.Errorf) with chassis error factories in gemini/client.go
+  - Input validation errors (API key, model, base URL, temperature, maxTokens) use chassiserrors.ValidationError
+  - API/HTTP failures (do request, read response, HTTP 4xx/5xx) use chassiserrors.DependencyError with WithCause
+- Agent: Claude Code (Claude:Opus 4.6)
+
 ## 1.3.8
 
 - Upgrade chassis-go from v9 to v10 (10.0.2)

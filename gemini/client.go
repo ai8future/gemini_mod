@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	chassiserrors "github.com/ai8future/chassis-go/v10/errors"
 	"github.com/ai8future/chassis-go-addons/llm"
 )
 
@@ -73,7 +73,7 @@ func WithTimeout(d time.Duration) Option {
 // New creates a Gemini client with the given API key and options.
 func New(apiKey string, opts ...Option) (*Client, error) {
 	if strings.TrimSpace(apiKey) == "" {
-		return nil, errors.New("gemini: API key must not be empty")
+		return nil, chassiserrors.ValidationError("gemini: API key must not be empty")
 	}
 	c := &Client{
 		apiKey:  apiKey,
@@ -86,13 +86,13 @@ func New(apiKey string, opts ...Option) (*Client, error) {
 	}
 	c.baseURL = strings.TrimRight(c.baseURL, "/")
 	if !strings.HasPrefix(c.baseURL, "https://") {
-		return nil, fmt.Errorf("gemini: base URL must use HTTPS, got %q", c.baseURL)
+		return nil, chassiserrors.ValidationError(fmt.Sprintf("gemini: base URL must use HTTPS, got %q", c.baseURL))
 	}
 	if c.model == "" {
-		return nil, errors.New("gemini: model must not be empty")
+		return nil, chassiserrors.ValidationError("gemini: model must not be empty")
 	}
 	if !validModel.MatchString(c.model) {
-		return nil, fmt.Errorf("gemini: invalid model name %q", c.model)
+		return nil, chassiserrors.ValidationError(fmt.Sprintf("gemini: invalid model name %q", c.model))
 	}
 
 	// Build an llm addon client when the doer is a standard *http.Client.
@@ -168,10 +168,10 @@ func (c *Client) Generate(ctx context.Context, prompt string, opts ...GenerateOp
 	}
 
 	if cfg.maxTokens <= 0 || cfg.maxTokens > maxMaxTokens {
-		return nil, fmt.Errorf("gemini: maxTokens must be between 1 and %d, got %d", maxMaxTokens, cfg.maxTokens)
+		return nil, chassiserrors.ValidationError(fmt.Sprintf("gemini: maxTokens must be between 1 and %d, got %d", maxMaxTokens, cfg.maxTokens))
 	}
 	if cfg.temperature < 0 || cfg.temperature > maxTemperature {
-		return nil, fmt.Errorf("gemini: temperature must be between 0 and %.1f, got %f", maxTemperature, cfg.temperature)
+		return nil, chassiserrors.ValidationError(fmt.Sprintf("gemini: temperature must be between 0 and %.1f, got %f", maxTemperature, cfg.temperature))
 	}
 
 	// Use the llm addon for standard calls (no GoogleSearch, addon available).
@@ -262,16 +262,16 @@ func (c *Client) doRequest(ctx context.Context, reqBody, respBody any) error {
 
 	resp, err := c.doer.Do(req)
 	if err != nil {
-		return fmt.Errorf("gemini: do request: %w", err)
+		return chassiserrors.DependencyError(fmt.Sprintf("gemini: do request: %v", err)).WithCause(err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {
-		return fmt.Errorf("gemini: read response: %w", err)
+		return chassiserrors.DependencyError(fmt.Sprintf("gemini: read response: %v", err)).WithCause(err)
 	}
 	if len(body) > maxResponseBytes {
-		return fmt.Errorf("gemini: response exceeds %d byte limit", maxResponseBytes)
+		return chassiserrors.DependencyError(fmt.Sprintf("gemini: response exceeds %d byte limit", maxResponseBytes))
 	}
 
 	if resp.StatusCode >= 400 {
@@ -279,7 +279,7 @@ func (c *Client) doRequest(ctx context.Context, reqBody, respBody any) error {
 		if len(msg) > maxErrorBodyBytes {
 			msg = msg[:maxErrorBodyBytes] + "...(truncated)"
 		}
-		return fmt.Errorf("gemini: HTTP %d: %s", resp.StatusCode, msg)
+		return chassiserrors.DependencyError(fmt.Sprintf("gemini: HTTP %d: %s", resp.StatusCode, msg))
 	}
 
 	if err := json.Unmarshal(body, respBody); err != nil {
