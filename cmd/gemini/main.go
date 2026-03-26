@@ -20,6 +20,8 @@ import (
 	"ai_gemini_mod/gemini"
 )
 
+var version = "dev"
+
 const (
 	retryAttempts    = 3
 	retryBaseDelay   = 500 * time.Millisecond
