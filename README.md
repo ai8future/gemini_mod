@@ -155,7 +155,7 @@ Tests use a mock `Doer` implementation — no real API calls are made. Coverage 
 
 | Package | Purpose |
 |---|---|
-| [chassis-go/v9](https://github.com/ai8future/chassis-go) | Config loading, structured logging, HTTP retry/timeout |
+| [chassis-go/v10](https://github.com/ai8future/chassis-go) | Config loading, structured logging, HTTP retry/timeout |
 | [chassis-go-addons/llm](https://github.com/ai8future/chassis-go-addons) | Shared LLM abstractions for multi-provider support |
 
 ## Project Structure

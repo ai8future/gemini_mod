@@ -621,3 +621,148 @@ func TestWithTimeout_IgnoredWithCustomDoer(t *testing.T) {
 		t.Error("doer should still be the custom mock")
 	}
 }
+
+// --- addonBaseURL tests ---
+
+func TestAddonBaseURL_StripsModels(t *testing.T) {
+	got := addonBaseURL("https://generativelanguage.googleapis.com/v1beta/models", "gemini-pro")
+	want := "https://generativelanguage.googleapis.com/v1beta"
+	if got != want {
+		t.Errorf("addonBaseURL: got %q, want %q", got, want)
+	}
+}
+
+func TestAddonBaseURL_NoModels(t *testing.T) {
+	got := addonBaseURL("https://custom-proxy.example.com/api", "gemini-pro")
+	want := "https://custom-proxy.example.com/api"
+	if got != want {
+		t.Errorf("addonBaseURL: got %q, want %q", got, want)
+	}
+}
+
+func TestAddonBaseURL_ModelsNotAtEnd(t *testing.T) {
+	got := addonBaseURL("https://example.com/models/extra", "gemini-pro")
+	want := "https://example.com/models/extra"
+	if got != want {
+		t.Errorf("addonBaseURL passthrough: got %q, want %q", got, want)
+	}
+}
+
+// --- Boundary value tests ---
+
+func TestGenerate_MaxTokensBoundaryLow(t *testing.T) {
+	mock := &mockDoer{statusCode: 200, respBody: `{}`}
+	c := mustNew(t, "key", WithDoer(mock))
+	_, err := c.Generate(context.Background(), "test", WithMaxTokens(1))
+	if err != nil {
+		t.Fatalf("maxTokens=1 should be valid, got: %v", err)
+	}
+}
+
+func TestGenerate_MaxTokensBoundaryHigh(t *testing.T) {
+	mock := &mockDoer{statusCode: 200, respBody: `{}`}
+	c := mustNew(t, "key", WithDoer(mock))
+	_, err := c.Generate(context.Background(), "test", WithMaxTokens(1_000_000))
+	if err != nil {
+		t.Fatalf("maxTokens=1_000_000 should be valid, got: %v", err)
+	}
+}
+
+func TestGenerate_MaxTokensJustOverBoundary(t *testing.T) {
+	mock := &mockDoer{statusCode: 200, respBody: `{}`}
+	c := mustNew(t, "key", WithDoer(mock))
+	_, err := c.Generate(context.Background(), "test", WithMaxTokens(1_000_001))
+	if err == nil {
+		t.Fatal("expected error for maxTokens=1_000_001")
+	}
+}
+
+func TestGenerate_TemperatureExactMax(t *testing.T) {
+	mock := &mockDoer{statusCode: 200, respBody: `{}`}
+	c := mustNew(t, "key", WithDoer(mock))
+	_, err := c.Generate(context.Background(), "test", WithTemperature(2.0))
+	if err != nil {
+		t.Fatalf("temperature=2.0 should be valid, got: %v", err)
+	}
+}
+
+// --- Default config values ---
+
+func TestGenerate_DefaultConfig(t *testing.T) {
+	mock := &mockDoer{statusCode: 200, respBody: `{}`}
+	c := mustNew(t, "key", WithDoer(mock))
+
+	_, _ = c.Generate(context.Background(), "test")
+
+	var req Request
+	if err := json.Unmarshal(mock.body, &req); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if req.GenerationConfig.MaxOutputTokens != 32000 {
+		t.Errorf("default maxOutputTokens: got %d, want 32000", req.GenerationConfig.MaxOutputTokens)
+	}
+	if req.GenerationConfig.Temperature == nil {
+		t.Fatal("default temperature should be set")
+	}
+	if *req.GenerationConfig.Temperature != 1.0 {
+		t.Errorf("default temperature: got %f, want 1.0", *req.GenerationConfig.Temperature)
+	}
+}
+
+// --- Short error passthrough ---
+
+func TestGenerate_ShortErrorNotTruncated(t *testing.T) {
+	shortError := `{"error":"bad request"}`
+	mock := &mockDoer{statusCode: 400, respBody: shortError}
+	c := mustNew(t, "key", WithDoer(mock))
+
+	_, err := c.Generate(context.Background(), "test")
+	if err == nil {
+		t.Fatal("expected error for 400 status")
+	}
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, shortError) {
+		t.Errorf("short error body should appear in full, got: %v", err)
+	}
+}
+
+// --- Extended model name validation ---
+
+func TestNew_InvalidModelNames_Extended(t *testing.T) {
+	tests := []struct {
+		name  string
+		model string
+	}{
+		{"unicode", "gemini-\u00e9"},
+		{"newline", "gemini\nmodel"},
+		{"tab", "gemini\tmodel"},
+		{"colon", "model:evil"},
+		{"at sign", "model@v2"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := New("key", WithModel(tt.model))
+			if err == nil {
+				t.Fatalf("expected error for model %q", tt.model)
+			}
+		})
+	}
+}
+
+func TestNew_ValidModelDigitsOnly(t *testing.T) {
+	_, err := New("key", WithModel("1234"))
+	if err != nil {
+		t.Fatalf("digit-only model should be valid, got: %v", err)
+	}
+}
+
+// --- Addon client with custom doer ---
+
+func TestNew_AddonClientNilWithCustomDoer(t *testing.T) {
+	mock := &mockDoer{}
+	c := mustNew(t, "key", WithDoer(mock))
+	if c.llmClient != nil {
+		t.Error("llmClient should be nil when custom Doer is injected")
+	}
+}

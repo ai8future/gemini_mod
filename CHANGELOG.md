@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.11] - 2026-03-27
+- Add 14 new unit tests covering addonBaseURL, boundary values, default config, short error passthrough, extended model name validation, and addon client branching logic
+- Test count: 34 -> 48, coverage: 88.7% -> 89.7% for gemini/ package
+- Agent: Claude:Opus 4.6
+
 ## [1.3.10] - 2026-03-26
 - GO-BEST-PRACTICES conformance: Makefile with cross-platform build targets (build-linux, build-darwin, build-all), launcher script, binary naming, LDFLAGS with version injection, CGO_ENABLED=0 static builds
 - Agent: Claude:Opus 4.6
