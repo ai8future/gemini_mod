@@ -17,10 +17,10 @@ import (
 	"github.com/ai8future/chassis-go/v10/logz"
 	"github.com/ai8future/chassis-go/v10/registry"
 
+	aigeminimod "ai_gemini_mod"
 	"ai_gemini_mod/gemini"
 )
 
-var version = "dev"
 
 const (
 	retryAttempts    = 3
@@ -40,6 +40,7 @@ type Config struct {
 }
 
 func main() {
+	chassis.SetAppVersion(aigeminimod.AppVersion)
 	chassis.RequireMajor(10)
 
 	d := deploy.Discover("ai_gemini_mod")

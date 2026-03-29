@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.12] - 2026-03-28
+- Add appversion.go with embedded VERSION for chassis SetAppVersion pattern
+- Update cmd/gemini/main.go to call chassis.SetAppVersion(aigeminimod.AppVersion) before RequireMajor
+- Remove dead `var version = "dev"` variable
+- Agent: Claude Code (Claude:Opus 4.6)
+
 ## [1.3.11] - 2026-03-27
 - Add 14 new unit tests covering addonBaseURL, boundary values, default config, short error passthrough, extended model name validation, and addon client branching logic
 - Test count: 34 -> 48, coverage: 88.7% -> 89.7% for gemini/ package
