@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	chassiserrors "github.com/ai8future/chassis-go/v10/errors"
+	chassiserrors "github.com/ai8future/chassis-go/v11/errors"
 	"github.com/ai8future/chassis-go-addons/llm"
 )
 

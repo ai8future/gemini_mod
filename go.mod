@@ -4,10 +4,10 @@ go 1.25.5
 
 require (
 	github.com/ai8future/chassis-go-addons/llm v1.0.7
-	github.com/ai8future/chassis-go/v10 v10.0.2
+	github.com/ai8future/chassis-go/v11 v11.0.0
 )
 
-replace github.com/ai8future/chassis-go/v10 => ../../chassis_suite/chassis-go
+replace github.com/ai8future/chassis-go/v11 => ../../chassis_suite/chassis-go
 
 replace github.com/ai8future/chassis-go-addons/llm => ../../chassis_suite/chassis-go-addons/llm
 
@@ -21,6 +21,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.40.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409 // indirect
-	google.golang.org/grpc v1.78.0 // indirect
+	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
