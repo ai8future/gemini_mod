@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/ai8future/chassis-go-addons/llm v1.0.7
-	github.com/ai8future/chassis-go/v11 v11.0.0
+	github.com/ai8future/chassis-go/v11 v11.1.8
 )
 
 replace github.com/ai8future/chassis-go/v11 => ../../chassis_suite/chassis-go
