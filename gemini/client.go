@@ -12,7 +12,6 @@ import (
 	"time"
 
 	chassiserrors "github.com/ai8future/chassis-go/v11/errors"
-	"github.com/ai8future/chassis-go-addons/llm"
 )
 
 const (
@@ -35,11 +34,10 @@ type Doer interface {
 
 // Client is a Gemini API client.
 type Client struct {
-	apiKey    string
-	model     string
-	baseURL   string
-	doer      Doer
-	llmClient *llm.Client // addon client for standard (non-tool) calls
+	apiKey  string
+	model   string
+	baseURL string
+	doer    Doer
 }
 
 // Option configures a Client.
@@ -95,42 +93,7 @@ func New(apiKey string, opts ...Option) (*Client, error) {
 		return nil, chassiserrors.ValidationError(fmt.Sprintf("gemini: invalid model name %q", c.model))
 	}
 
-	// Build an llm addon client when the doer is a standard *http.Client.
-	// This covers normal production use. When a custom Doer (e.g. a test
-	// mock) is injected, the addon path is skipped and doRequest is used
-	// as a fallback.
-	if hc, ok := c.doer.(*http.Client); ok {
-		addonClient, err := llm.NewClient(llm.Options{
-			Provider: llm.Gemini,
-			APIKey:   apiKey,
-			Model:    c.model,
-			BaseURL:  addonBaseURL(c.baseURL, c.model),
-			Doer:     hc,
-		})
-		if err == nil {
-			c.llmClient = addonClient
-		}
-		// If addon creation fails (shouldn't normally), fall back silently
-		// to doRequest.
-	}
-
 	return c, nil
-}
-
-// addonBaseURL converts the gemini module's per-model baseURL (which already
-// includes "/models") into the base URL the addon expects (without "/models").
-// The addon constructs URLs as: baseURL + "/models/" + model + ":generateContent"
-// Our baseURL already looks like ".../v1beta/models", so we strip the trailing
-// "/models" to let the addon reconstruct it.
-func addonBaseURL(baseURL, _ string) string {
-	if strings.HasSuffix(baseURL, "/models") {
-		return strings.TrimSuffix(baseURL, "/models")
-	}
-	// Non-standard base URL — strip trailing model path segments so the
-	// addon can reconstruct. If the URL doesn't end with "/models", pass
-	// it through as-is (the addon's URL construction may differ, so we'll
-	// fall through to doRequest if the addon wasn't created).
-	return baseURL
 }
 
 // GenerateOption configures a single Generate call.
@@ -174,49 +137,10 @@ func (c *Client) Generate(ctx context.Context, prompt string, opts ...GenerateOp
 		return nil, chassiserrors.ValidationError(fmt.Sprintf("gemini: temperature must be between 0 and %.1f, got %f", maxTemperature, cfg.temperature))
 	}
 
-	// Use the llm addon for standard calls (no GoogleSearch, addon available).
-	if !cfg.googleSearch && c.llmClient != nil {
-		return c.generateViaAddon(ctx, prompt, cfg)
-	}
-
-	// Fall back to hand-rolled HTTP for GoogleSearch calls or when addon
-	// is not available (e.g. custom Doer injected in tests).
 	return c.generateViaHTTP(ctx, prompt, cfg)
 }
 
-// generateViaAddon uses the chassis-go-addons/llm module.
-func (c *Client) generateViaAddon(ctx context.Context, prompt string, cfg *generateConfig) (*Response, error) {
-	chatReq := llm.ChatRequest{
-		Messages:    []llm.Message{{Role: "user", Content: prompt}},
-		MaxTokens:   llm.Int(cfg.maxTokens),
-		Temperature: llm.Float64(cfg.temperature),
-	}
-
-	chatResp, err := c.llmClient.Chat(ctx, chatReq)
-	if err != nil {
-		return nil, err
-	}
-
-	// Map the addon response to the exported Response type.
-	resp := &Response{
-		Candidates: []Candidate{{
-			Content: ResponseContent{
-				Parts: []ResponsePart{{Text: chatResp.Content}},
-				Role:  "model",
-			},
-			FinishReason: "STOP",
-		}},
-		UsageMetadata: UsageMetadata{
-			PromptTokenCount:     chatResp.Usage.InputTokens,
-			CandidatesTokenCount: chatResp.Usage.OutputTokens,
-			TotalTokenCount:      chatResp.Usage.TotalTokens,
-		},
-	}
-	return resp, nil
-}
-
-// generateViaHTTP is the original hand-rolled HTTP path. Used for GoogleSearch
-// calls (the llm addon does not support Tools) and when a custom Doer is injected.
+// generateViaHTTP sends the request to Gemini's native generateContent API.
 func (c *Client) generateViaHTTP(ctx context.Context, prompt string, cfg *generateConfig) (*Response, error) {
 	reqBody := Request{
 		Contents: []Content{

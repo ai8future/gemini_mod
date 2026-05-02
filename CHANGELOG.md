@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.13] - 2026-05-02
+- Remove the deleted chassis-go-addons/llm dependency and route Gemini calls through the native generateContent implementation.
+- Drop addon-specific tests and helper code that targeted the removed llm package.
+- Tidy module metadata after the dependency removal.
+- Agent: Codex:gpt-5.5
+
 ## [1.3.12] - 2026-03-28
 - Add appversion.go with embedded VERSION for chassis SetAppVersion pattern
 - Update cmd/gemini/main.go to call chassis.SetAppVersion(aigeminimod.AppVersion) before RequireMajor

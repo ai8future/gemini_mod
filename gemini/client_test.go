@@ -622,32 +622,6 @@ func TestWithTimeout_IgnoredWithCustomDoer(t *testing.T) {
 	}
 }
 
-// --- addonBaseURL tests ---
-
-func TestAddonBaseURL_StripsModels(t *testing.T) {
-	got := addonBaseURL("https://generativelanguage.googleapis.com/v1beta/models", "gemini-pro")
-	want := "https://generativelanguage.googleapis.com/v1beta"
-	if got != want {
-		t.Errorf("addonBaseURL: got %q, want %q", got, want)
-	}
-}
-
-func TestAddonBaseURL_NoModels(t *testing.T) {
-	got := addonBaseURL("https://custom-proxy.example.com/api", "gemini-pro")
-	want := "https://custom-proxy.example.com/api"
-	if got != want {
-		t.Errorf("addonBaseURL: got %q, want %q", got, want)
-	}
-}
-
-func TestAddonBaseURL_ModelsNotAtEnd(t *testing.T) {
-	got := addonBaseURL("https://example.com/models/extra", "gemini-pro")
-	want := "https://example.com/models/extra"
-	if got != want {
-		t.Errorf("addonBaseURL passthrough: got %q, want %q", got, want)
-	}
-}
-
 // --- Boundary value tests ---
 
 func TestGenerate_MaxTokensBoundaryLow(t *testing.T) {
@@ -754,15 +728,5 @@ func TestNew_ValidModelDigitsOnly(t *testing.T) {
 	_, err := New("key", WithModel("1234"))
 	if err != nil {
 		t.Fatalf("digit-only model should be valid, got: %v", err)
-	}
-}
-
-// --- Addon client with custom doer ---
-
-func TestNew_AddonClientNilWithCustomDoer(t *testing.T) {
-	mock := &mockDoer{}
-	c := mustNew(t, "key", WithDoer(mock))
-	if c.llmClient != nil {
-		t.Error("llmClient should be nil when custom Doer is injected")
 	}
 }
