@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.14 — 2026-05-13
+- Update dependencies and config
+
 ## [1.3.13] - 2026-05-02
 - Remove the deleted chassis-go-addons/llm dependency and route Gemini calls through the native generateContent implementation.
 - Drop addon-specific tests and helper code that targeted the removed llm package.
