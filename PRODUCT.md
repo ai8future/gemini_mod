@@ -14,9 +14,9 @@ This serves several business goals:
 
 1. **Reduce integration risk.** A single, well-tested Gemini client eliminates duplicated API integration code across projects. Every application that needs Gemini talks through this module, which means bugs, security issues, and API changes are fixed in one place.
 
-2. **Enable the multi-provider AI gateway.** The ai_suite ecosystem includes "airborne," a unified gRPC gateway that routes LLM requests across 20+ providers. ai_gemini_mod is the Gemini leg of that gateway. Without a clean, reusable client library, the gateway would need to embed raw HTTP logic for Gemini inline, making it harder to maintain and test.
+2. **Enable the multi-provider AI gateway.** The ai_suite ecosystem includes "airborne," a unified gRPC gateway that routes LLM requests across many providers. ai_gemini_mod is the Gemini leg of that gateway. Without a clean, reusable client library, the gateway would need to embed raw HTTP logic for Gemini inline, making it harder to maintain and test.
 
-3. **Standardize operational patterns.** By building on the shared "chassis-go" infrastructure framework (for config, logging, HTTP retry/timeout, error classification, and CLI lifecycle), ai_gemini_mod ensures that Gemini interactions follow the same operational patterns as every other service and CLI tool in the organization. This means consistent logging formats, consistent error categories, consistent retry behavior, and consistent environment-variable-driven configuration.
+3. **Standardize operational patterns.** By building on the shared "chassis-go" infrastructure framework (currently chassis-go/v11, for config, logging, HTTP retry/timeout, error classification, and CLI lifecycle), ai_gemini_mod ensures that Gemini interactions follow the same operational patterns as every other service and CLI tool in the organization. This means consistent logging formats, consistent error categories, consistent retry behavior, and consistent environment-variable-driven configuration.
 
 4. **Provide a standalone CLI for rapid experimentation.** Beyond library use, the CLI tool lets developers and operators quickly test prompts against Gemini from the terminal without writing any code. This accelerates prototyping, debugging, and evaluation of Gemini models.
 
@@ -41,17 +41,15 @@ The primary deliverable is a reusable Go library that any Go application can imp
   - **Temperature** (0.0 to 2.0) -- controls creativity vs. determinism
   - **Model selection** -- switch between Gemini model variants (e.g., gemini-3-pro-preview, gemini-2.5-flash) depending on cost/quality tradeoffs
 
-- **Custom HTTP transport injection.** The `Doer` interface allows callers to inject their own HTTP client, enabling:
+- **Custom HTTP transport injection.** The `Doer` interface (`Do(*http.Request) (*http.Response, error)`) allows callers to inject their own HTTP client, enabling:
   - Retry middleware with exponential backoff (via chassis-go's `call` package)
   - Circuit breakers for protecting against cascading failures
   - Instrumented transports for observability (OpenTelemetry integration)
   - Test mocks for unit testing without real API calls
 
-- **Dual execution path.** The library supports two code paths for making API calls:
-  - **Standard path** via `chassis-go-addons/llm`, a shared LLM abstraction layer that normalizes request/response formats across providers. This is used for normal (non-Google-Search) requests.
-  - **Fallback HTTP path** for Google Search grounding requests (which the shared LLM abstraction does not yet support) and for test scenarios using custom Doer mocks.
+- **Single native HTTP execution path.** Every call to `Generate` builds a `Request`, then routes through `generateViaHTTP` → `doRequest`, which marshals JSON and POSTs to Gemini's native `:generateContent` endpoint via the injected `Doer`. There is exactly one code path; all requests (with or without Google Search) go through it.
 
-  This dual-path architecture means the module is both participating in a multi-provider standardization effort AND preserving access to Gemini-specific features that the standardized layer has not yet absorbed.
+  **Why this matters:** An earlier iteration (v1.3.6) routed standard requests through a shared `chassis-go-addons/llm` abstraction and reserved a fallback HTTP path only for Google Search grounding and Doer mocks. That addon was removed in v1.3.13, collapsing the design back to a single hand-rolled `generateContent` implementation. Anyone modifying request/response handling should edit `gemini/client.go` and `gemini/types.go` directly -- there is no longer an external abstraction layer to coordinate with.
 
 ### 2. Command-Line Interface (the `cmd/gemini/` binary)
 
@@ -120,11 +118,12 @@ The library sets `req.GetBody` on every HTTP request, which allows retry middlew
 
 ai_gemini_mod is one component in a layered AI infrastructure:
 
-1. **Provider client modules** (ai_gemini_mod, ai_claude_mod, ai_openai_mod) -- Hardened, tested wrappers for individual LLM provider APIs.
-2. **Shared LLM abstraction** (chassis-go-addons/llm) -- A normalized interface that the provider modules are migrating toward, enabling provider-agnostic code.
-3. **Multi-provider gateway** (airborne) -- A gRPC gateway that routes requests across providers, using the client modules as its backend integrations.
-4. **Tool orchestration** (dispatch) -- A runtime that can invoke LLM-powered tools, potentially routed through airborne and ultimately through modules like ai_gemini_mod.
-5. **Pricing** (pricing_db) -- A cost tracking system that needs to know token counts (which ai_gemini_mod exposes via `UsageMetadata`).
+1. **Provider client modules** (ai_gemini_mod, ai_claude_mod, ai_openai_mod) -- Hardened, tested wrappers for individual LLM provider APIs, all built on the shared chassis-go framework.
+2. **Multi-provider gateway** (airborne) -- A gRPC gateway that routes requests across providers, using the client modules as its backend integrations.
+3. **Tool orchestration** (dispatch) -- A runtime that can invoke LLM-powered tools, potentially routed through airborne and ultimately through modules like ai_gemini_mod.
+4. **Pricing** (pricing_db) -- A cost tracking system that needs to know token counts (which ai_gemini_mod exposes via `UsageMetadata`).
+
+Note: a shared `chassis-go-addons/llm` abstraction was briefly used (v1.3.6) but removed (v1.3.13). Today each provider module owns its native HTTP implementation; standardization comes from the common chassis-go framework (config, logging, retry, typed errors), not from a shared request/response abstraction.
 
 The module's token usage metadata (`PromptTokenCount`, `CandidatesTokenCount`, `TotalTokenCount`) is particularly important in this ecosystem, as it feeds into cost tracking and billing systems.
 
@@ -133,12 +132,16 @@ The module's token usage metadata (`PromptTokenCount`, `CandidatesTokenCount`, `
 The changelog reveals a deliberate product evolution:
 
 - **v1.0.0**: Initial release with basic Gemini API wrapping and CLI.
-- **v1.1.0-v1.3.8**: Continuous upgrades to track the rapidly evolving chassis-go framework (v4 through v10), indicating this module is part of an actively maintained infrastructure platform.
+- **v1.1.0-v1.3.8**: Continuous upgrades to track the rapidly evolving chassis-go framework (v4 through v10, now v11), indicating this module is part of an actively maintained infrastructure platform.
 - **v1.2.0**: Major security hardening pass -- API key leak remediation, model name validation, input bounds checking, testability refactoring. This suggests the product matured from a prototype to a production-grade component.
-- **v1.3.6**: Integration with the shared LLM abstraction layer (chassis-go-addons/llm), signaling a move toward multi-provider standardization while preserving Gemini-specific features.
+- **v1.3.6**: Brief integration with the shared LLM abstraction layer (chassis-go-addons/llm) for standard requests, with a fallback HTTP path for Google Search and mocks.
 - **v1.3.9**: Adoption of chassis-go's typed error system, improving interoperability with downstream error-handling infrastructure.
+- **v1.3.10-v1.3.11**: GO-BEST-PRACTICES conformance -- cross-platform Makefile (static `CGO_ENABLED=0` builds), launcher script, and an expanded test suite.
+- **v1.3.12**: Embedded VERSION via `appversion.go` and adoption of chassis's `SetAppVersion` pattern.
+- **v1.3.13**: Removal of the `chassis-go-addons/llm` dependency -- all Gemini calls reverted to the native `generateContent` implementation, collapsing the dual-path design back to a single hand-rolled client.
+- **v1.3.14**: Dependency and config refresh (current chassis-go/v11).
 
-The product is in a mature state, with security hardening complete, comprehensive test coverage (~30 mock-based unit tests), and integration with the shared infrastructure platform well underway.
+The product is in a mature state, with security hardening complete, comprehensive mock-based test coverage (50 unit tests across the `gemini/` and `cmd/gemini/` packages), and standardization anchored on the shared chassis-go framework.
 
 ## Key Business Decisions Embedded in the Code
 
@@ -153,3 +156,18 @@ The product is in a mature state, with security hardening complete, comprehensiv
 5. **Full JSON response output** rather than extracted text. The CLI outputs the complete API response including metadata, safety ratings, and token counts. This prioritizes transparency and debuggability over user-friendliness, consistent with the tool being used by developers and operators rather than end users.
 
 6. **Private repository.** The product is proprietary and not open-sourced, indicating it is an internal infrastructure component rather than a community offering.
+
+## How to Think About Code Changes
+
+- **This repo owns one thing: the Gemini `generateContent` integration.** Provider-agnostic routing, fan-out across providers, and request brokering belong in the `airborne` gateway, not here. Tool orchestration belongs in `dispatch`. Cost math belongs in `pricing_db`. This module's job is to turn a validated prompt into a typed, hardened HTTP call to Gemini and parse the result.
+- **All request/response logic lives in `gemini/client.go` and `gemini/types.go`.** There is a single execution path (`Generate` → `generateViaHTTP` → `doRequest`); do not reintroduce branching execution paths or an external request abstraction without a deliberate decision (see the v1.3.6/v1.3.13 history above).
+- **Never weaken the security invariants.** API key stays in the `x-goog-api-key` header (never the URL); base URL stays HTTPS-only; model names stay regex-validated before URL interpolation; response bodies stay capped at 10 MB; error bodies stay truncated to 1 KB. These are load-bearing for production safety, not stylistic.
+- **Keep the `Doer` seam intact.** It is how the CLI injects chassis-go's retrying `call.Client` and how tests inject mocks (no real API calls in the suite). Changes to HTTP handling must continue to flow through `Doer.Do` and must keep setting `req.GetBody` so retry middleware can replay the body.
+- **chassis-go is the standardization layer.** Use its `config`, `logz`, `call`, `deploy`, `registry`, and typed `errors` factories rather than hand-rolling equivalents. The CLI gates on `chassis.RequireMajor(11)`; a chassis major bump is a coordinated, intentional change.
+- **Versioning/CHANGELOG discipline** is governed by `AGENTS.md` (bump `VERSION`, annotate `CHANGELOG.md`, keep `VERSION.chassis` in sync with the chassis major in `go.mod`). The `gemini/` library and `cmd/gemini/` CLI must stay decoupled: the library has no chassis dependency beyond the typed `errors` package; chassis lifecycle (config, deploy, registry) lives only in the CLI.
+
+## Current State / Status
+
+- **Version:** 1.3.14 (see `VERSION`); chassis-go pinned at v11.1.8 (see `VERSION.chassis` and `go.mod`, which uses a local `replace` directive to `../../chassis_suite/chassis-go`).
+- **Built and in use:** the `gemini/` client library (prompt submission, Google Search grounding, generation-parameter control, input validation, security hardening, typed errors) and the `cmd/gemini/` CLI (env-driven config, retrying HTTP via chassis `call`, structured logging, pretty-printed JSON output). Test suite is mock-based with 50 unit tests.
+- **Not built here (by design):** streaming responses, multi-turn/chat history, multimodal inputs (images/audio), function-calling tool definitions beyond Google Search, and any provider-agnostic routing. These would be added only if a concrete consumer requires them; cross-provider concerns stay in `airborne`.
